@@ -1,0 +1,7 @@
+[package]
+name = "light"
+version = "0.1.0"
+authors = ["Paul Merrill <pdm@pdm.me>"]
+
+[dependencies]
+sdl2 = "0.29.0"
