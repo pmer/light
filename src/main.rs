@@ -52,7 +52,7 @@ fn handle_input(mut state: State,
                 -> Result<State, ()> {
     for event in event_pump.poll_iter() {
         match event {
-            Event::Quit { .. } => return Err(()),
+            Event::Quit { .. } |
             Event::KeyDown { keycode: Some(Keycode::Escape), .. } => return Err(()),
             Event::MouseMotion { x, y, .. } => handle_mouse_move(&mut state, settings, x, y),
             Event::MouseButtonDown { x, y, mouse_btn, .. } => {
@@ -68,17 +68,17 @@ fn handle_input(mut state: State,
 
 fn handle_mouse_move(state: &mut State, settings: &Settings, x: i32, y: i32) {
     state.started = true;
-    state.light.point = logical_point(&state, settings, x, y);
+    state.light.point = logical_point(state, settings, x, y);
 
     if let Some(new_obstacle_start) = state.new_obstacle_start {
-        let obstacle_end = logical_point(&state, settings, x, y);
+        let obstacle_end = logical_point(state, settings, x, y);
         let new_obstacle = Rect::from_points(new_obstacle_start, obstacle_end);
         state.new_obstacle = Some(new_obstacle);
     }
 }
 
 fn handle_mouse_down(state: &mut State, settings: &Settings, x: i32, y: i32, btn: MouseButton) {
-    let mouse_location = logical_point(&state, settings, x, y);
+    let mouse_location = logical_point(state, settings, x, y);
 
     match btn {
         // Place an obstacle.
@@ -97,7 +97,7 @@ fn handle_mouse_down(state: &mut State, settings: &Settings, x: i32, y: i32, btn
 fn handle_mouse_up(state: &mut State, settings: &Settings, x: i32, y: i32) {
     // If we were placing an obstacle, its size is now determined. Add it to the state.
     if let Some(new_obstacle_start) = state.new_obstacle_start {
-        let obstacle_end = logical_point(&state, settings, x, y);
+        let obstacle_end = logical_point(state, settings, x, y);
         let new_obstacle = Rect::from_points(new_obstacle_start, obstacle_end);
         if new_obstacle.area() > 0 {
             state.obstacles.push(new_obstacle);
@@ -132,7 +132,7 @@ fn render(state: &State) -> Bitmap {
     let mut pixels = vec![BLACK; npixels];
 
     if started && light.on {
-        render_light(&mut pixels, &grid, &obstacles, &light);
+        render_light(&mut pixels, grid, obstacles, light);
     }
 
     for obstacle in obstacles {
@@ -146,27 +146,25 @@ fn render(state: &State) -> Bitmap {
     Bitmap { pixels }
 }
 
-fn render_light(pixels: &mut Vec<u8>, grid: &Dimensions, obstacles: &Vec<Rect>, light: &Light) {
+fn render_light(pixels: &mut Vec<u8>, grid: &Dimensions, obstacles: &[Rect], light: &Light) {
     for yoff in -light.size..light.size + 1 {
         for xoff in -light.size..light.size + 1 {
             let x = light.point.x + xoff;
             let y = light.point.y + yoff;
             let illuminated_point = Point { x, y };
             let distance = Point { x: xoff, y: yoff }.magnitude();
-            if (distance as i32) < light.size {
-                if 0 <= x && x < grid.width && 0 <= y && y < grid.height {
-                    if has_line_of_sight(light.point, illuminated_point, obstacles) {
-                        let offset = (y as usize) * (grid.width as usize) + (x as usize);
-                        let intensity = 1.0 - distance / (light.size as f32);
-                        pixels[offset] = green(intensity);
-                    }
-                }
+            if (distance as i32) < light.size && 0 <= x && x < grid.width && 0 <= y &&
+               y < grid.height &&
+               has_line_of_sight(light.point, illuminated_point, obstacles) {
+                let offset = (y as usize) * (grid.width as usize) + (x as usize);
+                let intensity = 1.0 - distance / (light.size as f32);
+                pixels[offset] = green(intensity);
             }
         }
     }
 }
 
-fn has_line_of_sight(a: Point, b: Point, obstacles: &Vec<Rect>) -> bool {
+fn has_line_of_sight(a: Point, b: Point, obstacles: &[Rect]) -> bool {
     let line: Vec<Point> = bresenham(a, b);
     for obs in obstacles {
         for pixel in &line {
